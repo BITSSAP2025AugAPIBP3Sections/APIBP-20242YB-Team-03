@@ -1,0 +1,178 @@
+openapi: 3.0.3
+info:
+  title: Funding Microservice API
+  description: |-
+    REST + GraphQL API for Funding Request Management in Nexus Platform.
+    Implements CQRS pattern with separate write (funding_requests) and read (funding_request_views) models.
+    Compliant with APIBP & SESAPZG583 requirements.
+  version: 1.0.0
+  contact:
+    name: Group XX - M.Tech CSE
+    email: your-email@pluni-bits-pilani.ac.in
+
+servers:
+  - url: http://localhost:3003
+    description: Local development server
+  - url: https://funding-ms.cscp.in
+    description: Production server
+
+paths:
+  /api/v1/funding/requests:
+    post:
+      summary: Create a new funding request
+      operationId: createFundingRequest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRequest'
+            example:
+              title: "Rice Supply for 500 Farmers"
+              requiredAmount: 50000.0
+              funderId: "funder_001"
+              deadline: "2025-12-31T23:59:59"
+      responses:
+        '200':
+          description: Funding request created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FundingResponse'
+              example:
+                id: "673f2a1b9e7d4c1a2b3c4d5e"
+                status: "PENDING"
+
+  /api/v1/funding/requests/views:
+    get:
+      summary: Get all funding request views for a funder
+      operationId: getFundingViews
+      parameters:
+        - name: funderId
+          in: query
+          required: true
+          schema:
+            type: string
+          example: funder_001
+      responses:
+        '200':
+          description: List of funding request views
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FundingRequestView'
+
+  /graphql:
+    post:
+      summary: GraphQL endpoint for funding queries
+      operationId: graphql
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                query:
+                  type: string
+      responses:
+        '200':
+          description: GraphQL response
+          content:
+            application/json:
+              schema:
+                type: object
+
+components:
+  schemas:
+    CreateRequest:
+      type: object
+      required:
+        - title
+        - requiredAmount
+        - funderId
+        - deadline
+      properties:
+        title:
+          type: string
+          example: "Wheat Procurement Drive"
+        requiredAmount:
+          type: number
+          format: double
+          example: 75000.0
+        funderId:
+          type: string
+          example: "funder_002"
+        deadline:
+          type: string
+          format: date-time
+          example: "2025-12-31T23:59:59"
+
+    FundingResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, FUNDED, CANCELLED, SETTLED]
+
+    FundingRequestView:
+      type: object
+      properties:
+        requestId:
+          type: string
+        title:
+          type: string
+        currentFunded:
+          type: number
+          format: double
+        requiredAmount:
+          type: number
+          format: double
+        funderName:
+          type: string
+        investors:
+          type: array
+          items:
+            $ref: '#/components/schemas/InvestorShare'
+
+    InvestorShare:
+      type: object
+      properties:
+        name:
+          type: string
+        amount:
+          type: number
+          format: double
+        sharePercent:
+          type: number
+          format: double
+
+  examples:
+    SampleFundingCreation:
+      summary: Example of creating a funding request
+      value:
+        title: "Maize Supply Chain Funding"
+        requiredAmount: 100000.0
+        funderId: "funder_003"
+        deadline: "2026-01-15T18:00:00"
+
+    SampleGraphQLQuery:
+      summary: GraphQL query example
+      value: |
+        query {
+          fundingRequestWithInvestors(id: "673f2a1b9e7d4c1a2b3c4d5e") {
+            requestId
+            title
+            currentFunded
+            requiredAmount
+            funderName
+            investors {
+              name
+              amount
+              sharePercent
+            }
+          }
+        }
