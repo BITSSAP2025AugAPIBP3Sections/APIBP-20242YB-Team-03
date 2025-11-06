@@ -1,0 +1,357 @@
+openapi: 3.0.3
+info:
+  title: Payment Service API
+  description: API documentation for Collaboration Supply Chain Platform Payment Service
+  version: "v1.0"
+servers:
+  - url: http://localhost:3006
+    description: Local server
+
+tags:
+  - name: Payment API
+    description: Operations related to payment creation and verification
+
+paths:
+  /api/v1/payments/create:
+    post:
+      tags:
+        - Payment API
+      summary: Create a new payment
+      description: Creates a Razorpay payment order and returns payment details.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentRequest'
+            example:
+              serviceName: "order-service"
+              referenceId: "ORD-12345"
+              amount: 15000
+              currency: "INR"
+              description: "Payment for order ORD-12345"
+              customer:
+                name: "A. Customer"
+                email: "customer@example.com"
+                contact: "+919876543210"
+      responses:
+        "200":
+          description: Payment created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponse'
+              example:
+                orderId: "local-order-987"
+                razorpayOrderId: "order_JX1a2b3c4d"
+                amount: 15000
+                currency: "INR"
+                status: "CREATED"
+                receipt: "receipt-ORD-12345"
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "500":
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/payments/verify:
+    post:
+      tags:
+        - Payment API
+      summary: Verify a payment
+      description: Verifies the payment using Razorpay order and payment IDs.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentVerificationRequest'
+            example:
+              razorpayOrderId: "order_JX1a2b3c4d"
+              razorpayPaymentId: "pay_JY2x3y4z5"
+              razorpaySignature: "signature_from_razorpay"
+      responses:
+        "200":
+          description: Payment verified and stored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+              example:
+                id: "64f1c2a7e2b5e0001a123abc"
+                orderId: "local-order-987"
+                razorpayOrderId: "order_JX1a2b3c4d"
+                razorpayPaymentId: "pay_JY2x3y4z5"
+                amount: 15000
+                currency: "INR"
+                status: "SUCCESS"
+                serviceName: "order-service"
+                referenceId: "ORD-12345"
+                createdAt: "2025-11-06T12:34:56Z"
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/payments/{id}:
+    get:
+      tags:
+        - Payment API
+      summary: Get payment by ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Internal payment document id
+      responses:
+        "200":
+          description: Payment found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/payments/order/{orderId}:
+    get:
+      tags:
+        - Payment API
+      summary: Get payment by order ID
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+          description: Local order id used by the application
+      responses:
+        "200":
+          description: Payment found by order id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/payments/service/{serviceName}/{referenceId}:
+    get:
+      tags:
+        - Payment API
+      summary: Get payments by service reference
+      description: Fetch all payments by service name and reference ID.
+      parameters:
+        - in: path
+          name: serviceName
+          required: true
+          schema:
+            type: string
+          description: Name of the service that created the payment (e.g., "order-service")
+        - in: path
+          name: referenceId
+          required: true
+          schema:
+            type: string
+          description: Reference id in the service (e.g., order id)
+      responses:
+        "200":
+          description: List of payments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Payment'
+              example:
+                - id: "64f1c2a7e2b5e0001a123abc"
+                  orderId: "local-order-987"
+                  razorpayOrderId: "order_JX1a2b3c4d"
+                  razorpayPaymentId: "pay_JY2x3y4z5"
+                  amount: 15000
+                  currency: "INR"
+                  status: "SUCCESS"
+                  serviceName: "order-service"
+                  referenceId: "ORD-12345"
+                  createdAt: "2025-11-06T12:34:56Z"
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/payments/health:
+    get:
+      tags:
+        - Payment API
+      summary: Health check
+      responses:
+        "200":
+          description: Service is running
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Payment Service is running"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    BadRequest:
+      description: Invalid input
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: 400
+            message: "Invalid request payload"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: 404
+            message: "Payment not found"
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: 500
+            message: "Internal server error"
+
+  schemas:
+    PaymentRequest:
+      type: object
+      required:
+        - serviceName
+        - referenceId
+        - amount
+        - currency
+      properties:
+        serviceName:
+          type: string
+          description: Name of the service that requested the payment
+          example: "order-service"
+        referenceId:
+          type: string
+          description: Reference id inside the service (order id, invoice id etc.)
+          example: "ORD-12345"
+        amount:
+          type: integer
+          description: Amount in smallest currency unit (e.g., paise for INR)
+          example: 15000
+        currency:
+          type: string
+          description: Currency code (ISO 4217)
+          example: "INR"
+        description:
+          type: string
+          description: Human-friendly description for the payment
+          example: "Payment for order ORD-12345"
+        customer:
+          type: object
+          properties:
+            name:
+              type: string
+              example: "A. Customer"
+            email:
+              type: string
+              format: email
+              example: "customer@example.com"
+            contact:
+              type: string
+              example: "+919876543210"
+
+    PaymentResponse:
+      type: object
+      properties:
+        orderId:
+          type: string
+          description: Local order id (internal)
+        razorpayOrderId:
+          type: string
+          description: Order id returned by Razorpay
+        amount:
+          type: integer
+        currency:
+          type: string
+        status:
+          type: string
+          description: INTERNAL status, e.g., CREATED, FAILED
+        receipt:
+          type: string
+
+    PaymentVerificationRequest:
+      type: object
+      required:
+        - razorpayOrderId
+        - razorpayPaymentId
+        - razorpaySignature
+      properties:
+        razorpayOrderId:
+          type: string
+          example: "order_JX1a2b3c4d"
+        razorpayPaymentId:
+          type: string
+          example: "pay_JY2x3y4z5"
+        razorpaySignature:
+          type: string
+          example: "generated_signature_from_razorpay"
+
+    Payment:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Database/document id
+          example: "64f1c2a7e2b5e0001a123abc"
+        orderId:
+          type: string
+          description: Local order id
+        razorpayOrderId:
+          type: string
+        razorpayPaymentId:
+          type: string
+        amount:
+          type: integer
+        currency:
+          type: string
+        status:
+          type: string
+          description: e.g., CREATED, SUCCESS, FAILED
+        serviceName:
+          type: string
+        referenceId:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Optional map for storing extra info
+        createdAt:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
