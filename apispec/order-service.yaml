@@ -1,0 +1,287 @@
+openapi: 3.0.3
+info:
+  title: Order Microservice API - CSCP Platform
+  description: |-
+    REST API for Order Management in CSCP Platform (Funding → Order → Delivery → Payment).
+    Implements CQRS with separate write (orders) and read (order_views) models.
+    Used after Funding Request reaches FUNDED status.
+    Compliant with SESAPZG583 [S1-S4] and APIBP Assignment.
+  version: 1.0.0
+  contact:
+    name: Group XX - M.Tech CSE
+    email: your-email@pluni-bits-pilani.ac.in
+
+servers:
+  - url: http://localhost:3004
+    description: Local Order MS
+  - url: https://order-ms.cscp.in
+    description: Production
+
+paths:
+  # 1. Place Order (Funder creates order after funding)
+  /api/v1/orders:
+    post:
+      summary: Place a new order (only when funding request is FUNDED)
+      operationId: placeOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaceOrderRequest'
+            example:
+              productId: "prod_001"
+              quantity: 500
+              funderId: "funder_001"
+              supplierId: "supplier_002"
+              requestId: "673f2a1b9e7d4c1a2b3c4d5e"
+      responses:
+        '200':
+          description: Order placed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+              example:
+                id: "ord_673f2a1b9e7d4c1a2b3c4d5f"
+                status: "PLACED"
+
+    get:
+      summary: Get all orders for a user (funder/supplier)
+      operationId: getOrdersByUser
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+          example: funder_001
+      responses:
+        '200':
+          description: List of orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrderSummary'
+
+  # 2. Get single order
+  /api/v1/orders/{id}:
+    get:
+      summary: Get order details by ID
+      operationId: getOrderById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Order details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDetail'
+
+  # 3. Update order status (Supplier)
+  /api/v1/orders/{id}/status:
+    put:
+      summary: Update order status (PLACED → CONFIRMED → SHIPPED → DELIVERED)
+      operationId: updateOrderStatus
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateStatusRequest'
+            example:
+              status: "DELIVERED"
+      responses:
+        '200':
+          description: Status updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusUpdateResponse'
+
+  # 4. Pay supplier (Funder pays after delivery)
+  /api/v1/orders/{id}/pay:
+    put:
+      summary: Mark supplier as paid (triggers profit distribution)
+      operationId: paySupplier
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaySupplierRequest'
+            example:
+              supplierPaid: true
+      responses:
+        '200':
+          description: Payment recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaySupplierResponse'
+
+  # 5. Order Views (CQRS Read Model)
+  /api/v1/orders/views:
+    get:
+      summary: Get denormalized order views for dashboard
+      operationId: getOrderViews
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+          example: funder_001
+      responses:
+        '200':
+          description: Materialized views for UI
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrderView'
+
+components:
+  schemas:
+    PlaceOrderRequest:
+      type: object
+      required:
+        - productId
+        - quantity
+        - funderId
+        - supplierId
+        - requestId
+      properties:
+        productId:
+          type: string
+          example: "prod_001"
+        quantity:
+          type: integer
+          example: 500
+        funderId:
+          type: string
+          example: "funder_001"
+        supplierId:
+          type: string
+          example: "supplier_002"
+        requestId:
+          type: string
+          description: Funding request ID (must be FUNDED)
+          example: "673f2a1b9e7d4c1a2b3c4d5e"
+
+    OrderResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum: [PLACED, CONFIRMED, SHIPPED, DELIVERED]
+
+    OrderSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum: [PLACED, CONFIRMED, SHIPPED, DELIVERED]
+
+    OrderDetail:
+      type: object
+      properties:
+        id:
+          type: string
+        supplierPaid:
+          type: boolean
+        status:
+          type: string
+        totalAmount:
+          type: number
+          format: double
+
+    UpdateStatusRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [CONFIRMED, SHIPPED, DELIVERED]
+
+    StatusUpdateResponse:
+      type: object
+      properties:
+        status:
+          type: string
+
+    PaySupplierRequest:
+      type: object
+      required:
+        - supplierPaid
+      properties:
+        supplierPaid:
+          type: boolean
+
+    PaySupplierResponse:
+      type: object
+      properties:
+        supplierPaid:
+          type: boolean
+          example: true
+
+    OrderView:
+      type: object
+      properties:
+        orderId:
+          type: string
+        productName:
+          type: string
+        quantity:
+          type: integer
+        totalAmount:
+          type: number
+          format: double
+        funderName:
+          type: string
+        supplierName:
+          type: string
+        status:
+          type: string
+        supplierPaid:
+          type: boolean
+
+  examples:
+    SamplePlaceOrder:
+      summary: Funder places order after funding
+      value:
+        productId: "rice_500kg"
+        quantity: 1000
+        funderId: "funder_001"
+        supplierId: "supplier_rice_hub"
+        requestId: "673f2a1b9e7d4c1a2b3c4d5e"
+
+    SampleDeliveryUpdate:
+      summary: Supplier marks as delivered
+      value:
+        status: "DELIVERED"
