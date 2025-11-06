@@ -1,0 +1,593 @@
+openapi: 3.0.3
+info:
+  title: User Service API
+  description: |
+    Manages user registration, authentication, and profile management in the Nexus ecosystem.
+    Provides comprehensive user CRUD operations with wallet balance management and role-based access.
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@nexus.com
+ 
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Local development server
+  - url: https://api.nexus.io/users/v1
+    description: Production server
+ 
+# No global security - authentication handled per endpoint as needed
+ 
+tags:
+  - name: Users
+    description: User profile management and CRUD operations
+  - name: Authentication
+    description: User login and token management
+  - name: Health
+    description: Service health monitoring
+ 
+paths:
+  /users:
+    get:
+      tags: [Users]
+      summary: Get all users
+      description: Retrieve a list of all users with basic information
+      operationId: getAllUsers
+      responses:
+        '200':
+          description: Successfully retrieved users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+              example:
+                success: true
+                message: "Users retrieved successfully"
+                data:
+                  - id: "507f1f77bcf86cd799439011"
+                    name: "John Doe"
+                    roles: ["user"]
+                    walletBalance: 100.50
+                  - id: "507f1f77bcf86cd799439012"
+                    name: "Jane Smith"
+                    roles: ["user", "seller"]
+                    walletBalance: 250.75
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+ 
+    post:
+      tags: [Users]
+      summary: Create new user
+      description: Register a new user account with initial wallet balance
+      operationId: createUser
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreateRequest'
+            example:
+              name: "John Doe"
+              email: "john.doe@example.com"
+              password: "securePassword123"
+              roles: ["user"]
+              walletBalance: 0.00
+      responses:
+        '201':
+          description: User successfully created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+              example:
+                success: true
+                message: "User created successfully"
+                data:
+                  id: "507f1f77bcf86cd799439011"
+                  name: "John Doe"
+                  email: "john.doe@example.com"
+                  roles: ["user"]
+                  verified: false
+                  walletBalance: 0.00
+                  createdAt: "2023-01-15T10:30:00Z"
+                  updatedAt: "2023-01-15T10:30:00Z"
+        '400':
+          description: Invalid user data or validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "Email already exists"
+ 
+  /users/{id}:
+    get:
+      tags: [Users]
+      summary: Get user by ID
+      description: Retrieve detailed information about a specific user
+      operationId: getUserById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User ID
+          schema:
+            type: string
+            pattern: '^[a-fA-F0-9]{24}$'
+          example: "507f1f77bcf86cd799439011"
+      responses:
+        '200':
+          description: User details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+              example:
+                success: true
+                message: "User retrieved successfully"
+                data:
+                  id: "507f1f77bcf86cd799439011"
+                  name: "John Doe"
+                  email: "john.doe@example.com"
+                  roles: ["user"]
+                  verified: false
+                  walletBalance: 100.50
+                  createdAt: "2023-01-15T10:30:00Z"
+                  updatedAt: "2023-01-20T15:45:00Z"
+        '400':
+          description: Invalid user ID format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundResponse'
+              example:
+                success: false
+                message: "User not found"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+ 
+    put:
+      tags: [Users]
+      summary: Update user
+      description: Update user profile information including name, email, and wallet balance
+      operationId: updateUser
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User ID
+          schema:
+            type: string
+            pattern: '^[a-fA-F0-9]{24}$'
+          example: "507f1f77bcf86cd799439011"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdateRequest'
+            example:
+              name: "John Updated Doe"
+              email: "john.updated@example.com"
+              walletBalance: 150.75
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+              example:
+                success: true
+                message: "User updated successfully"
+                data:
+                  id: "507f1f77bcf86cd799439011"
+                  name: "John Updated Doe"
+                  email: "john.updated@example.com"
+                  roles: ["user"]
+                  verified: false
+                  walletBalance: 150.75
+                  createdAt: "2023-01-15T10:30:00Z"
+                  updatedAt: "2023-01-20T16:30:00Z"
+        '400':
+          description: Invalid request data or validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+ 
+    delete:
+      tags: [Users]
+      summary: Delete user
+      description: Permanently delete a user account
+      operationId: deleteUser
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User ID
+          schema:
+            type: string
+            pattern: '^[a-fA-F0-9]{24}$'
+          example: "507f1f77bcf86cd799439011"
+      responses:
+        '200':
+          description: User deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                success: true
+                message: "User deleted successfully"
+        '400':
+          description: Invalid user ID format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+ 
+  /auth/login:
+    post:
+      tags: [Authentication]
+      summary: User login
+      description: Authenticate user credentials and return access token
+      operationId: loginUser
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              email: "john.doe@example.com"
+              password: "securePassword123"
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+              example:
+                success: true
+                message: "Login successful"
+                data:
+                  token: "token_507f1f77bcf86cd799439011_1673780400000"
+                  userId: "507f1f77bcf86cd799439011"
+        '400':
+          description: Invalid request data or validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "Invalid email format"
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedResponse'
+              example:
+                success: false
+                message: "Invalid credentials"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+ 
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      description: Check service health and status
+      operationId: healthCheck
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                success: true
+                message: "Service is healthy"
+                data:
+                  status: "UP"
+                  service: "user-service"
+                  timestamp: 1673780400000
+ 
+components:
+  schemas:
+    # Request Schemas
+    UserCreateRequest:
+      type: object
+      required: [name, email, password, roles]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Full name of the user
+          example: "John Doe"
+        email:
+          type: string
+          format: email
+          description: Valid email address
+          example: "john.doe@example.com"
+        password:
+          type: string
+          minLength: 8
+          maxLength: 100
+          description: User password (minimum 8 characters)
+          example: "securePassword123"
+        roles:
+          type: array
+          items:
+            type: string
+          minItems: 1
+          description: User roles
+          example: ["user"]
+        walletBalance:
+          type: number
+          format: decimal
+          minimum: 0
+          description: Initial wallet balance (optional, defaults to 0)
+          example: 0.00
+ 
+    UserUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Updated full name
+          example: "John Updated Doe"
+        email:
+          type: string
+          format: email
+          description: Updated email address
+          example: "john.updated@example.com"
+        walletBalance:
+          type: number
+          format: decimal
+          minimum: 0
+          description: Updated wallet balance
+          example: 150.75
+ 
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          description: User email address
+          example: "john.doe@example.com"
+        password:
+          type: string
+          description: User password
+          example: "securePassword123"
+ 
+    # Response Data Schemas
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique user identifier
+          example: "507f1f77bcf86cd799439011"
+        name:
+          type: string
+          description: User's full name
+          example: "John Doe"
+        email:
+          type: string
+          format: email
+          description: User's email address
+          example: "john.doe@example.com"
+        roles:
+          type: array
+          items:
+            type: string
+          description: User roles
+          example: ["user"]
+        verified:
+          type: boolean
+          description: Account verification status
+          example: false
+        walletBalance:
+          type: number
+          format: decimal
+          description: Current wallet balance
+          example: 100.50
+        createdAt:
+          type: string
+          format: date-time
+          description: Account creation timestamp
+          example: "2023-01-15T10:30:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+          example: "2023-01-20T15:45:00Z"
+ 
+    UserListItem:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique user identifier
+          example: "507f1f77bcf86cd799439011"
+        name:
+          type: string
+          description: User's full name
+          example: "John Doe"
+        roles:
+          type: array
+          items:
+            type: string
+          description: User roles
+          example: ["user"]
+        walletBalance:
+          type: number
+          format: decimal
+          description: Current wallet balance
+          example: 100.50
+ 
+    LoginData:
+      type: object
+      properties:
+        token:
+          type: string
+          description: Authentication token
+          example: "token_507f1f77bcf86cd799439011_1673780400000"
+        userId:
+          type: string
+          description: User ID
+          example: "507f1f77bcf86cd799439011"
+ 
+    HealthData:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Service status
+          example: "UP"
+        service:
+          type: string
+          description: Service name
+          example: "user-service"
+        timestamp:
+          type: number
+          description: Health check timestamp
+          example: 1673780400000
+ 
+    # Response Wrapper Schemas
+    UserResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/User'
+ 
+    UserListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserListItem'
+ 
+    LoginResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/LoginData'
+ 
+    HealthResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/HealthData'
+ 
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Operation completed successfully"
+ 
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: "An error occurred"
+ 
+    NotFoundResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: "Resource not found"
+ 
+    UnauthorizedResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: "Unauthorized access"
