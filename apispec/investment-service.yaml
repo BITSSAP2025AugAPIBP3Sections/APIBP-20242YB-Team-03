@@ -1,387 +1,256 @@
 openapi: 3.0.3
 info:
-  title: Investment Service API
+  title: "Investment Service API"
   description: |
-    Handles investor fund allocations, settlements, and investment tracking within the Nexus ecosystem.
-    Provides endpoints for creating, retrieving, and settling investments with clear data flow between investors and fund requests.
-  version: 1.0.0
+    Funding request management microservice for Nexus collaborative supply chain platform.
+    Provides lifecycle operations for funding requests including creation, investment,
+    update, retrieval, and return distribution.
+
+    Business Capabilities:
+      - Funding request creation and definition (amount, deadline, committed returns)
+      - Investor participation and tracking (per-investor invested amounts)
+      - Automatic funder capital credit on full funding
+      - Return distribution workflow (principal + pro‑rata committed returns)
+
+    Technical Stack: Spring Boot 3.5.7, MongoDB, Java 17, WebClient
+    Business Owner: Product Engineering Department
+    Technical Contact: Backend Engineering Team
   contact:
-    name: API Support
-    email: support@nexus.com
+    name: "Backend Engineering Team"
+    email: "backend-support@nexus.com"
+  version: "1.0.0"
 
 servers:
-  - url: http://localhost:3004/api/v1
-    description: Local development server
-  - url: https://api.nexus.io/investments/v1
-    description: Production server
+  - url: "http://localhost:3004"
+    description: "Local development server"
+
+  - url: "https://investment-service.dev.nexus.com"
+    description: "Dev environment"
+
+  - url: "https://investment-service.prod.nexus.com"
+    description: "Production environment"
 
 tags:
-  - name: Investments
-    description: Investment creation, tracking, and settlement operations
-  - name: Health
-    description: Service health monitoring
+  - name: "Funding Requests"
+    description: "Operations for funding requests lifecycle. Stakeholders: Product Management (business), Backend Engineering (technical), Finance Operations (returns)."
 
 paths:
-  /investments:
+  /api/v1/funding-requests:
     post:
-      tags: [Investments]
-      summary: Create new investment
-      description: Create an investment request linking investor, fund request, and amount invested.
-      operationId: createInvestment
+      tags: ["Funding Requests"]
+      summary: "Create Funding Request"
+      description: |
+        Creates a new funding request owned by the authenticated funder.
+        Stakeholders:
+          - Business: Product Management
+          - Technical: Backend Engineering Team
+          - Finance: Finance Operations (committedReturnAmount accuracy)
+        Use Case: Define a new capital raising initiative.
+      operationId: createFundingRequest
+      security: [{ ApiKeyAuth: [] }]
+      parameters:
+        - name: X-User-Id
+          in: header
+          required: true
+          description: Funder user ID creating the request.
+          schema:
+            type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/InvestmentCreateRequest'
-            example:
-              amount: 5000
-              investorId: "507f1f77bcf86cd799439011"
-              requestId: "64d123e5ac45f6789a902312"
+              $ref: '#/components/schemas/FundingRequestCreationDTO'
       responses:
         '201':
-          description: Investment created successfully
+          description: Funding request created successfully.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/InvestmentResponse'
-              example:
-                success: true
-                message: "Investment created successfully"
-                data:
-                  id: "650a1f44bcf86cd799439011"
-                  amount: 5000
-                  investorId: "507f1f77bcf86cd799439011"
-                  requestId: "64d123e5ac45f6789a902312"
-                  status: "PENDING"
-                  createdAt: "2023-10-15T10:30:00Z"
-        '400':
-          description: Invalid investment data
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                success: false
-                message: "Investor or request not found"
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: '#/components/schemas/FundingRequest'
+        '400': { description: Validation error }
+        '401': { description: Unauthorized funder }
     get:
-      tags: [Investments]
-      summary: Get all investments
-      description: Retrieve list of all investments for a specific investor.
-      operationId: getInvestments
-      parameters:
-        - name: investorId
-          in: query
-          required: false
-          description: Filter investments by investor ID
-          schema:
-            type: string
-            example: "507f1f77bcf86cd799439011"
+      tags: ["Funding Requests"]
+      summary: "List Funding Requests"
+      description: |
+        Retrieves all funding requests.
+        Stakeholders:
+          - Business: Analytics & Reporting
+          - Technical: Backend Engineering
+          - Support: Customer Support Team
+        Use Case: Portfolio overview & monitoring.
+      operationId: listFundingRequests
       responses:
         '200':
-          description: Investments retrieved successfully
+          description: List retrieved.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/InvestmentListResponse'
-              example:
-                success: true
-                message: "Investments retrieved successfully"
-                data:
-                  - id: "650a1f44bcf86cd799439011"
-                    amount: 5000
-                    requestId: "64d123e5ac45f6789a902312"
-                    status: "PENDING"
-                  - id: "650a1f45bcf86cd799439012"
-                    amount: 8000
-                    requestId: "64d123e5ac45f6789a902313"
-                    status: "SETTLED"
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /investments/{id}:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FundingRequest'
+  /api/v1/funding-requests/{requestId}:
     get:
-      tags: [Investments]
-      summary: Get investment by ID
-      description: Retrieve details of a specific investment and its settlement status.
-      operationId: getInvestmentById
+      tags: ["Funding Requests"]
+      summary: "Get Funding Request"
+      description: |
+        Retrieves a funding request by ID.
+        Stakeholders:
+          - Business: Product Management
+          - Technical: Backend Engineering
+          - Support: Customer Support Team
+        Use Case: Detailed view for monitoring or support.
+      operationId: getFundingRequest
       parameters:
-        - name: id
+        - name: requestId
           in: path
           required: true
-          description: Investment ID
           schema:
             type: string
-            example: "650a1f44bcf86cd799439011"
       responses:
         '200':
-          description: Investment details retrieved successfully
+          description: Request retrieved.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/InvestmentResponse'
-              example:
-                success: true
-                message: "Investment retrieved successfully"
-                data:
-                  id: "650a1f44bcf86cd799439011"
-                  amount: 5000
-                  investorId: "507f1f77bcf86cd799439011"
-                  requestId: "64d123e5ac45f6789a902312"
-                  status: "SETTLED"
-                  settledProfit: 750
-        '404':
-          description: Investment not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/NotFoundResponse'
-              example:
-                success: false
-                message: "Investment not found"
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /investments/settle:
+                $ref: '#/components/schemas/FundingRequest'
+        '404': { description: Not found }
     put:
-      tags: [Investments]
-      summary: Settle investment
-      description: Distribute profit and update investment status after settlement.
-      operationId: settleInvestment
+      tags: ["Funding Requests"]
+      summary: "Update Funding Request"
+      description: |
+        Updates editable fields of an OPEN funding request (title, description, deadline, committedReturnAmount).
+        Stakeholders:
+          - Business: Product Management
+          - Technical: Backend Engineering
+          - Compliance: Audit (change history)
+        Use Case: Adjust funding parameters before full funding.
+      operationId: updateFundingRequest
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: X-User-Id
+          in: header
+          required: true
+          description: Funder ID (must own the request)
+          schema:
+            type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/InvestmentSettleRequest'
-            example:
-              requestId: "64d123e5ac45f6789a902312"
-              actualProfit: 750
+              $ref: '#/components/schemas/FundingRequestUpdateDTO'
       responses:
-        '200':
-          description: Investment settled successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InvestmentSettleResponse'
-              example:
-                success: true
-                message: "Investment settled successfully"
-                data:
-                  distributedShares:
-                    - investorId: "507f1f77bcf86cd799439011"
-                      share: 500
-                    - investorId: "507f1f77bcf86cd799439012"
-                      share: 250
-        '400':
-          description: Invalid settlement data
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                success: false
-                message: "Investment not found for given requestId"
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /health:
-    get:
-      tags: [Health]
-      summary: Health check
-      description: Verify if the Investment Service is operational
-      operationId: healthCheck
+        '200': { description: Updated successfully }
+        '400': { description: Validation or status not OPEN }
+        '403': { description: Ownership violation }
+        '404': { description: Not found }
+  /api/v1/funding-requests/{requestId}/investment:
+    post:
+      tags: ["Funding Requests"]
+      summary: "Invest In Funding Request"
+      description: |
+        Records an investment by an investor (negative walletAdjustment deducted remotely via User Service).
+        Automatically credits funder when request becomes fully funded.
+        Stakeholders:
+          - Business: Product Management
+          - Finance: Finance Operations
+          - Technical: Backend Engineering
+        Use Case: Capital contribution.
+      operationId: investInFundingRequest
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: X-User-Id
+          in: header
+          required: true
+          description: Investor user ID executing the investment
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FundingInvestmentDTO'
       responses:
-        '200':
-          description: Service is healthy
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HealthResponse'
-              example:
-                success: true
-                message: "Service is healthy"
-                data:
-                  status: "UP"
-                  service: "investment-service"
-                  timestamp: 1673780400000
+        '200': { description: Investment recorded }
+        '400': { description: Validation failure (amount too large or insufficient funds) }
+        '404': { description: Funding request not found }
+  /api/v1/funding-requests/{requestId}/distribute-returns:
+    post:
+      tags: ["Funding Requests"]
+      summary: "Distribute Returns"
+      description: |
+        Distributes principal + pro‑rata committed returns to investors; debits funder first.
+        Stakeholders:
+          - Finance: Finance Operations
+          - Business: Product Management
+          - Technical: Backend Engineering
+        Use Case: Settlement workflow.
+      operationId: distributeReturns
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200': { description: Returns distributed }
+        '400': { description: Invalid state or already distributed }
+        '404': { description: Funding request not found }
 
 components:
   schemas:
-    # Request Schemas
-    InvestmentCreateRequest:
+    FundingRequestCreationDTO:
       type: object
-      required: [amount, investorId, requestId]
+      required: [title, requiredAmount, deadline, committedReturnAmount, description]
       properties:
-        amount:
-          type: number
-          format: decimal
-          minimum: 1
-          description: Amount invested by the investor
-          example: 5000
-        investorId:
-          type: string
-          description: ID of the investor (User)
-          example: "507f1f77bcf86cd799439011"
-        requestId:
-          type: string
-          description: ID of the fund request being invested into
-          example: "64d123e5ac45f6789a902312"
-
-    InvestmentSettleRequest:
-      type: object
-      required: [requestId, actualProfit]
-      properties:
-        requestId:
-          type: string
-          description: ID of the funding request being settled
-          example: "64d123e5ac45f6789a902312"
-        actualProfit:
-          type: number
-          format: decimal
-          minimum: 0
-          description: Actual profit earned for distribution
-          example: 750
-
-    # Response Data Schemas
-    Investment:
+        title: { type: string, description: "Funding request title" }
+        requiredAmount: { type: number, format: double, minimum: 100, description: "Total capital required" }
+        deadline: { type: string, format: date-time, description: "Future deadline for funding" }
+        committedReturnAmount: { type: number, format: double, minimum: 0, description: "Total gross return promised" }
+        description: { type: string, description: "Detailed business purpose" }
+    FundingRequestUpdateDTO:
       type: object
       properties:
-        id:
-          type: string
-          description: Unique investment ID
-          example: "650a1f44bcf86cd799439011"
-        amount:
-          type: number
-          format: decimal
-          example: 5000
-        investorId:
-          type: string
-          example: "507f1f77bcf86cd799439011"
-        requestId:
-          type: string
-          example: "64d123e5ac45f6789a902312"
-        status:
-          type: string
-          enum: [PENDING, SETTLED]
-          example: "PENDING"
-        settledProfit:
-          type: number
-          format: decimal
-          example: 750
-        createdAt:
-          type: string
-          format: date-time
-          example: "2023-10-15T10:30:00Z"
-
-    DistributedShare:
+        title: { type: string }
+        deadline: { type: string, format: date-time }
+        committedReturnAmount: { type: number, format: double, minimum: 0 }
+        description: { type: string }
+    FundingInvestmentDTO:
+      type: object
+      required: [walletAdjustment]
+      properties:
+        walletAdjustment: { type: number, format: double, description: "Negative amount deducted from investor wallet" }
+    FundingRequest:
       type: object
       properties:
-        investorId:
-          type: string
-          description: Investor who receives share of profit
-          example: "507f1f77bcf86cd799439011"
-        share:
-          type: number
-          format: decimal
-          example: 500
-
-    HealthData:
-      type: object
-      properties:
-        status:
-          type: string
-          example: "UP"
-        service:
-          type: string
-          example: "investment-service"
-        timestamp:
-          type: number
-          example: 1673780400000
-
-    # Response Wrappers
-    InvestmentResponse:
-      type: object
-      properties:
-        success:
-          type: boolean
-        message:
-          type: string
-        data:
-          $ref: '#/components/schemas/Investment'
-
-    InvestmentListResponse:
-      type: object
-      properties:
-        success:
-          type: boolean
-        message:
-          type: string
-        data:
-          type: array
-          items:
-            $ref: '#/components/schemas/Investment'
-
-    InvestmentSettleResponse:
-      type: object
-      properties:
-        success:
-          type: boolean
-        message:
-          type: string
-        data:
+        id: { type: string }
+        title: { type: string }
+        requiredAmount: { type: number, format: double }
+        currentFunded: { type: number, format: double }
+        funderId: { type: string }
+        status: { type: string, description: "OPEN|FUNDED|..." }
+        createdAt: { type: string, format: date-time }
+        deadline: { type: string, format: date-time }
+        investorAmounts:
           type: object
-          properties:
-            distributedShares:
-              type: array
-              items:
-                $ref: '#/components/schemas/DistributedShare'
-
-    HealthResponse:
-      type: object
-      properties:
-        success:
-          type: boolean
-        message:
-          type: string
-        data:
-          $ref: '#/components/schemas/HealthData'
-
-    ErrorResponse:
-      type: object
-      properties:
-        success:
-          type: boolean
-          example: false
-        message:
-          type: string
-          example: "An error occurred"
-
-    NotFoundResponse:
-      type: object
-      properties:
-        success:
-          type: boolean
-          example: false
-        message:
-          type: string
-          example: "Resource not found"
+          additionalProperties:
+            type: number
+        committedReturnAmount: { type: number, format: double }
+        description: { type: string }
+        returnDistributed: { type: boolean }
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-User-Id
