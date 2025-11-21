@@ -9,10 +9,10 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>org.razz</groupId>
-	<artifactId>consumer</artifactId>
+	<artifactId>notification-service</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>consumer</name>
-	<description>consumer</description>
+	<name>notification-service</name>
+	<description>Notification Service for Nexus Platform</description>
 	<url/>
 	<licenses>
 		<license/>
