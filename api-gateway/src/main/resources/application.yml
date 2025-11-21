@@ -1,0 +1,56 @@
+# --- Server Configuration ---
+server:
+  port: 8080
+
+# --- JWT Configuration ---
+jwt:
+  algorithm: HS256
+  # The secret remains Base64 encoded for security and compatibility
+  secret: dGhpcy1pcy1hLXZlcnktbG9uZy1zZWNyZXQta2V5LWV4YW1wbGUtMTIzNDU2Nzg5MA==
+  expiration: 3600000
+
+# --- Spring Web Configuration ---
+spring:
+  main:
+    web-application-type: reactive
+
+  # --- Spring Cloud Gateway Configuration ---
+  cloud:
+    gateway:
+      default-filters:
+        - JwtAuthFilter
+
+      routes:
+
+        - id: user-service
+          uri: http://localhost:3000
+          predicates:
+            - Path=/nexus/api/v1/user, /nexus/api/v1/users/**
+          filters:
+            - StripPrefix=1
+            - UserAuthorizationFilter
+
+        - id: product-service
+          uri: http://localhost:3002
+          predicates:
+            - Path=/nexus/api/v1/product/**, /nexus/api/v1/products/**
+          filters:
+            - StripPrefix=1
+            - ProductAuthorizationFilter
+
+        - id: investment-service
+          uri: http://localhost:3004
+          predicates:
+            - Path=/nexus/api/v1/funding-requests/**
+          filters:
+            - StripPrefix=1
+            - FundingRequestAuthorizationFilter
+
+
+        - id: order-service
+          uri: http://localhost:3007
+          predicates:
+               - Path=/nexus/api/v1/orders/**
+          filters:
+               - StripPrefix=1
+               - OrderAuthorizationFilter
